@@ -38,7 +38,7 @@ angular.module('vd.directive.advanced_select', [])
 	/**
 	 * Base directive for creating an advanced select
 	 */
-	.directive('vdAdvancedSelect', function($parse, $filter, $timeout, $compile, $window) {
+	.directive('vdAdvancedSelect', function ($parse, $filter, $timeout, $compile, $window, $document, $anchorScroll) {
 		                       //0000111110000000000022220000000000000000000000333300000000000000444444444444444440000000005555555555555555500000006666666666666666600000000000000077770
 		//var NG_OPTIONS_REGEXP = /^\s*(.*?)(?:\s+as\s+(.*?))?(?:\s+group\s+by\s+(.*))?\s+for\s+(?:([\$\w][\$\w\d]*)|(?:\(\s*([\$\w][\$\w\d]*)\s*,\s*([\$\w][\$\w\d]*)\s*\)))\s+in\s+(.*)$/;
 		var NG_OPTIONS_REGEXP = /^\s*(.*?)(?:\s+as\s+(.*?))?(?:\s+group\s+by\s+(.*))?\s+for\s+(?:([\$\w][\$\w\d]*)|(?:\(\s*([\$\w][\$\w\d]*)\s*,\s*([\$\w][\$\w\d]*)\s*\)))\s+in\s+(.*?)(?:\s+track\s+by\s+(.*?))?$/;
@@ -75,6 +75,10 @@ angular.module('vd.directive.advanced_select', [])
 				$scope.filteredOptions = [];
 
 				$scope.dropDownElement = null;
+				$scope.pos = {
+				    top: 0,
+				    left: 0
+				};
 
 				$attrs.$observe($attrs.required, function() {
 					$scope.required = $attrs.required
@@ -287,7 +291,7 @@ angular.module('vd.directive.advanced_select', [])
 			compile: function(tElement, tAttrs) {
 
 				// We compile the dropdown element once for select of the same nature
-				var advancedSelectDropLink = $compile($('<div class="vd-advanced-select-drop">'+
+			    var advancedSelectDropLink = $compile(angular.element('<div class="vd-advanced-select-drop" ng-style="pos">' +
 					'<div class="search">'+
 						'<input type="text" ng-model="search.label" autocomplete="off" tabindex="-1" />'+
 					'</div>'+
@@ -551,7 +555,9 @@ angular.module('vd.directive.advanced_select', [])
 					/**
 					 * Show the dropdown it is hidden, otherwise hide it
 					 */
-					scope.toggleOpening = function(open, focus) {
+					scope.toggleOpening = function (open, focus) {
+					    var body = angular.element($document[0].body);
+
 						if (angular.isDefined(open)) {
 							scope.dropDownOpen = open;
 						} else {
@@ -575,9 +581,9 @@ angular.module('vd.directive.advanced_select', [])
 								}
 							});
 
-							$(document)
-								.bind('keydown.vd-advanced-select', handleKeysWhenDropDownOpened)
-								.bind('mousedown.vd-advanced-select', handleMouseWhenDropDownOpened);
+                            //TODO: Make sure off is called
+							$document.on('keydown.vd-advanced-select', handleKeysWhenDropDownOpened)
+							$document.on('mousedown.vd-advanced-select', handleMouseWhenDropDownOpened);
 
 							// Create the dropDown element once (for each advanced select)
 							if (!scope.dropDownElement) {
@@ -587,8 +593,8 @@ angular.module('vd.directive.advanced_select', [])
 								}
 							}
 
-							// Show the dropdown element (by adding it to the page)
-							$('body').append(scope.dropDownElement);
+						    // Show the dropdown element (by adding it to the page)							
+							body.append(scope.dropDownElement);
 
 							// Adjust the dropdown position
 							scope.adjustDropDownSize();
@@ -601,7 +607,10 @@ angular.module('vd.directive.advanced_select', [])
 								scope.dropDownElement.removeClass('top');
 							}
 
-							scope.dropDownElement.find('.search input').focus();
+							scope.dropDownElement[0]
+                                .getElementsByClassName('search')[0]
+                                .getElementsByTagName('input')[0]
+                                .focus();
 
 						} else {
 
@@ -611,9 +620,8 @@ angular.module('vd.directive.advanced_select', [])
 							}
 							
 
-							$(document)
-								.unbind('keydown.vd-advanced-select', handleKeysWhenDropDownOpened)
-								.unbind('mousedown.vd-advanced-select', handleMouseWhenDropDownOpened);
+							$document.off('keydown.vd-advanced-select', handleKeysWhenDropDownOpened)
+							$document.off('mousedown.vd-advanced-select', handleMouseWhenDropDownOpened);
 
 							// Don't watch the search anymore
 							if (watchLabelUnregister) {
@@ -621,7 +629,7 @@ angular.module('vd.directive.advanced_select', [])
 							}
 
 							if (focus) {
-								element.focus();
+								element[0].focus();
 							}
 						}
 					};
@@ -629,7 +637,7 @@ angular.module('vd.directive.advanced_select', [])
 					/**
 					 * Sets the filtered options
 					 */
-					scope.setFilteredOptions = function() {
+					scope.setFilteredOptions = function () {					    
 						if (scope.config == null || angular.isUndefined(scope.config.searchMinChars) || scope.search.label.length >= scope.config.searchMinChars) {
 							
 							var filteredOptions = $filter(scope.config.filter)(scope.options, scope.search);
@@ -660,29 +668,29 @@ angular.module('vd.directive.advanced_select', [])
 					 */
 					scope.adjustDropDownPosition = function() {
 						var isTop = false;
+						var body = angular.element($document[0].body);
 
-						var undermostPointInSelect = element.offset().top + element.outerHeight() + scope.dropDownElement.outerHeight();
-						var undermostPointInWindow = $($window).scrollTop()+ document.documentElement.clientHeight
+						var undermostPointInSelect = element[0].offsetTop + element[0].offsetHeight + scope.dropDownElement[0].offsetHeight;
+						var undermostPointInWindow = body[0].scrollTop + document.documentElement.clientHeight;
 						if (undermostPointInSelect <= undermostPointInWindow) {
 							// Top
-							isTop = true;
-							scope.dropDownElement.offset({
-								left: element.offset().left,
-								top: element.offset().top + element.height()
-							});
+						    isTop = true;
+						    scope.pos.left = element[0].offsetLeft;
+						    scope.pos.top = element[0].offsetTop + element[0].offsetHeight;
+						    //scope.dropDownElement[0].offsetLeft = element[0].offsetLeft;
+						    //scope.dropDownElement[0].offsetTop = element[0].offsetTop + element[0].offsetHeight;
 						} else {
-							// Bottom
-							scope.dropDownElement.offset({
-								left: element.offset().left,
-								top: element.offset().top - scope.dropDownElement.outerHeight()
-							});
+						    // Bottom
+						    scope.pos.left = element[0].offsetLeft;
+						    scope.pos.top = element[0].offsetTop - scope.dropDownElement[0].offsetHeight;
+						    //scope.dropDownElement[0].offsetLeft = element[0].offsetLeft;
+						    //scope.dropDownElement[0].offsetTop = element[0].offsetTop - scope.dropDownElement[0].offsetHeight;
 						}
-
 						return isTop;
 					}
 
 					scope.adjustDropDownSize = function() {
-						scope.dropDownElement.width(element.width());
+						scope.dropDownElement[0].clientWidth = element[0].clientWidth;
 					}
 				}
 			}
@@ -691,7 +699,7 @@ angular.module('vd.directive.advanced_select', [])
 	/**
 	 * Directive to make an advanced select with single selection
 	 */ 
-	.directive('vdAdvancedSelectSimple', function($parse, $compile) {
+	.directive('vdAdvancedSelectSimple', function ($parse, $compile, $document) {
 		return {
 			restrict: 'A',
 			require: 'vdAdvancedSelect',
@@ -739,7 +747,7 @@ angular.module('vd.directive.advanced_select', [])
 
 					// Open the dropdown when entering a letter of digit on the closed advanced select
 					element.bind('focus', function() {
-						$(document).bind('keydown.advanced_select_focus', function(e) {
+						$document.on('keydown.advanced_select_focus', function(e) {
 							c = ""+String.fromCharCode(e.keyCode);
 							if (c.match(/^[a-zA-Z0-9]$/) == null) {
 								return;
@@ -749,7 +757,7 @@ angular.module('vd.directive.advanced_select', [])
 							scope.$apply();
 						});
 					}).bind('blur', function() {
-						$(document).unbind('keydown.advanced_select_focus');
+						$document.off('keydown.advanced_select_focus');
 					});
 
 					/**
